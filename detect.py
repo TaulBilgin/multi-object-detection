@@ -97,7 +97,7 @@ def detect(original_image, min_score, max_overlap, top_k, suppress=None):
 
 
 if __name__ == '__main__':
-    img_path = 'C:\\Users\\bilgi\\OneDrive\\Masaüstü\\WhatsApp Image 2025-02-05 at 17.48.55_f2832298.jpg'
+    img_path = 'write your image path' # like C:\\Users\\...jpg
     original_image = Image.open(img_path, mode='r')
     original_image = original_image.convert('RGB')
     detect(original_image, min_score=0.55, max_overlap=0.5, top_k=200).show()
