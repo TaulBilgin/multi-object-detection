@@ -37,6 +37,8 @@ def main():
     """
     global start_epoch, label_map, epoch, checkpoint, decay_lr_at
 
+    best_loss_value = float('inf')  # best loss so far, used to save the best checkpoint
+
     # Initialize model or load checkpoint
     if checkpoint is None:
         start_epoch = 0
@@ -54,7 +56,7 @@ def main():
                                     lr=lr, momentum=momentum, weight_decay=weight_decay)
 
     else:
-        checkpoint = torch.load(checkpoint)
+        checkpoint = torch.load(checkpoint, weights_only=False)
         start_epoch = checkpoint['epoch'] + 1
         print('\nLoaded checkpoint from epoch %d.\n' % start_epoch)
         model = checkpoint['model']
@@ -76,7 +78,12 @@ def main():
     # To convert iterations to epochs, divide iterations by the number of iterations per epoch
     # The paper trains for 120,000 iterations with a batch size of 32, decays after 80,000 and 100,000 iterations
     epochs = iterations // (len(train_dataset) // 32)
-    decay_lr_at = [it // (len(train_dataset) // 32) for it in decay_lr_at]
+
+    # normal
+    # decay_lr_at = [it // (len(train_dataset) // 32) for it in decay_lr_at]
+    
+    # for this project
+    decay_lr_at = [35, 50]
 
     # Epochs
     for epoch in range(start_epoch, epochs):
@@ -85,17 +92,19 @@ def main():
         # Decay learning rate at particular epochs
         if epoch in decay_lr_at:
             adjust_learning_rate(optimizer, decay_lr_to)
-            print("yep")
 
         # One epoch's training
-        train(train_loader=train_loader,
+        losses = train(train_loader=train_loader,
               model=model,
               criterion=criterion,
               optimizer=optimizer,
               epoch=epoch)
 
-        # Save checkpoint
-        save_checkpoint(epoch, model, optimizer)
+        # Save best checkpoint
+        if losses < best_loss_value:
+            best_loss_value = losses
+            print('Best loss so far, saving checkpoint...')
+            save_checkpoint(epoch, model, optimizer)
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -137,7 +146,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # Clip gradients, if necessary
         if grad_clip is not None:
             clip_gradient(optimizer, grad_clip)
-            print("nop")
 
         # Update model
         optimizer.step()
@@ -157,6 +165,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                                                                   batch_time=batch_time,
                                                                   data_time=data_time, loss=losses))
     del predicted_locs, predicted_scores, images, boxes, labels  # free some memory since their histories may be stored
+    return losses.avg  # return the average loss for the epoch
 
 
 if __name__ == '__main__':
