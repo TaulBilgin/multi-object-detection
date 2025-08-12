@@ -73,6 +73,12 @@ def main():
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                                collate_fn=train_dataset.collate_fn, num_workers=workers,
                                                pin_memory=True)  # note that we're passing the collate function here
+    
+    val_dataset = PascalVOCDataset(data_folder,
+                                split='test',
+                                keep_difficult=keep_difficult)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
+                                              collate_fn=val_dataset.collate_fn, num_workers=workers, pin_memory=True)
 
     # Calculate total number of epochs to train and the epochs to decay learning rate at (i.e. convert iterations to epochs)
     # To convert iterations to epochs, divide iterations by the number of iterations per epoch
@@ -99,12 +105,37 @@ def main():
               criterion=criterion,
               optimizer=optimizer,
               epoch=epoch)
+        
+        avarage_loss = validate(model, val_loader=val_loader, loss_fn=criterion)
+        print("Validation loss: {:.4f}".format(avarage_loss))
+
 
         # Save best checkpoint
         if losses < best_loss_value:
             best_loss_value = losses
             print('Best loss so far, saving checkpoint...')
             save_checkpoint(epoch, model, optimizer)
+
+def validate(model, val_loader, loss_fn):
+    model.eval()
+    val_loss = 0.0
+
+    with torch.no_grad():
+        for i, (images, boxes, labels, _) in enumerate(val_loader):
+
+            # Move to default device
+            images = images.to(device)  # (batch_size (N), 3, 300, 300)
+            boxes = [b.to(device) for b in boxes]
+            labels = [l.to(device) for l in labels]
+
+            # For detection models like Faster R-CNN, model returns a dict of losses
+            predicted_locs, predicted_scores = model(images)
+
+            losses = loss_fn(predicted_locs, predicted_scores, boxes, labels)
+            
+            val_loss += losses.item()
+
+    return val_loss / len(val_loader) 
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
