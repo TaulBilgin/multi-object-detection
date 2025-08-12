@@ -111,8 +111,8 @@ def main():
 
 
         # Save best checkpoint
-        if losses < best_loss_value:
-            best_loss_value = losses
+        if avarage_loss < best_loss_value:
+            best_loss_value = avarage_loss
             print('Best loss so far, saving checkpoint...')
             save_checkpoint(epoch, model, optimizer)
 
